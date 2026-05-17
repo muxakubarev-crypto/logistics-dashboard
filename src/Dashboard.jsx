@@ -31,13 +31,10 @@ const sortMonths = (months) => [...months].sort((a, b) => monthToTimestamp(a) - 
 const HISTORY_KEY = 'dashboard_history', THEME_KEY = 'dashboard_theme', API_KEY_STORAGE = 'deepseek_api_key';
 const MONTHLY_DATA_KEY = 'kubarev_monthly_data', GOALS_KEY = 'dashboard_goals', ADMIN_KEY = 'dashboard_admin';
 const MAX_HISTORY = 5;
-const API_BASE = '/api/data';
 
 const hashPassword = async (pw) => { const d = new TextEncoder().encode(pw); const h = await crypto.subtle.digest('SHA-256', d); return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, '0')).join(''); };
-const loadMonthlyDataLocal = () => { try { return JSON.parse(localStorage.getItem(MONTHLY_DATA_KEY) || '{}'); } catch { return {}; } };
-const saveMonthlyDataLocal = (d) => { localStorage.setItem(MONTHLY_DATA_KEY, JSON.stringify(d)); };
-const loadMonthlyDataApi = async () => { try { const r = await fetch(API_BASE); const d = await r.json(); return (d && Object.keys(d).length > 0) ? d : null; } catch { return null; } };
-const saveMonthlyDataApi = async (d) => { try { await fetch(API_BASE, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); } catch(e) { console.warn('API save failed'); } };
+const loadMonthlyData = () => { try { return JSON.parse(localStorage.getItem(MONTHLY_DATA_KEY) || '{}'); } catch { return {}; } };
+const saveMonthlyData = (d) => { localStorage.setItem(MONTHLY_DATA_KEY, JSON.stringify(d)); };
 const monthlyDataToMd = (data) => {
   const allKeys = sortMonths(Object.keys(data));
   let md = `# Данные запросов: Кубарев Михаил\n\n> Автосохранено\n\n`;
@@ -78,8 +75,8 @@ const Heatmap = ({ data }) => { if(!data||!data.length) return null; const getC=
 const KpiTooltip = ({ children, formula, sparkData, sparkColor, sparkKey, invertSpark }) => { const [show,setShow]=useState(false); return <div className="relative" onMouseEnter={()=>setShow(true)} onMouseLeave={()=>setShow(false)}>{children}{show&&<div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-30 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-3 min-w-[220px] animate-in fade-in duration-200"><p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{formula}</p>{sparkData?.length>=2&&<div className="flex justify-center mb-1"><Sparkline data={sparkData} dataKey={sparkKey} color={sparkColor} invert={invertSpark}/></div>}<div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 rotate-45 bg-white dark:bg-slate-800 border-r border-b border-slate-200 dark:border-slate-700"></div></div>}</div>; };
 
 const Dashboard = () => {
-  const [monthlyData, setMonthlyData] = useState(loadMonthlyDataLocal);
-  const [rawText, setRawText] = useState(() => monthlyDataToMd(loadMonthlyDataLocal()));
+  const [monthlyData, setMonthlyData] = useState(loadMonthlyData);
+  const [rawText, setRawText] = useState(() => monthlyDataToMd(loadMonthlyData()));
   const [dataSource, setDataSource] = useState('markdown');
   const [excelFileName, setExcelFileName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -102,8 +99,6 @@ const Dashboard = () => {
   const fileInputRef = useRef(null); const monthFileInputRef = useRef(null); const chatEndRef = useRef(null); const dashboardRef = useRef(null);
   const managerFilter = 'Кубарев Михаил';
 
-  // При монтировании: загружаем с API
-  useEffect(() => { loadMonthlyDataApi().then(apiData => { if (apiData && Object.keys(apiData).length > 0) { setMonthlyData(apiData); saveMonthlyDataLocal(apiData); } }); }, []);
   useEffect(() => { setRawText(monthlyDataToMd(monthlyData)); }, [monthlyData]);
   useEffect(() => { document.documentElement.classList.toggle('dark', theme === 'dark'); localStorage.setItem(THEME_KEY, theme); }, [theme]);
   useEffect(() => { const checkTime = () => { const h = new Date().getHours(); if (!themeManual) { if (h >= 21 || h < 6) { if (theme !== 'dark') setTheme('dark'); } else { if (theme !== 'light') setTheme('light'); } } }; checkTime(); const iv = setInterval(() => { if (!themeManual) checkTime(); }, 60000); return () => clearInterval(iv); }, [theme, themeManual]);
@@ -118,14 +113,14 @@ const Dashboard = () => {
     const parsed = parseMarkdownTable(`## ${name}\n${text}`, managerFilter); if (!parsed.length) { alert('Не удалось распарсить данные. Проверь формат.'); return; }
     const cats = parsed.map(r => ({ category: r.category, order: r.order, dealFell: r.dealFell, priceFail: r.priceFail, slowCalc: r.slowCalc, clientSilent: r.clientSilent, formal: r.formal, noFeedback: r.noFeedback, total: r.total }));
     const upd = { ...monthlyData, [name]: { manager: managerFilter, categories: cats } };
-    setMonthlyData(upd); saveMonthlyDataLocal(upd); saveMonthlyDataApi(upd);
+    setMonthlyData(upd); saveMonthlyData(upd);
     setNewMonthName(''); setNewMonthText(''); setShowMonthPanel(false); setEditingMonth(null); setMonthExcelName(''); setShowUpdateReminder(false);
   };
   const handleMonthExcelUpload = async (e) => { const file = e.target.files?.[0]; if (!file) return; setMonthExcelName(file.name); try { const md = await loadExcelAsMarkdown(file, { onlyKubarev: true }); setNewMonthText(md); } catch { alert('❌ Ошибка конвертации Excel.'); } if (monthFileInputRef.current) monthFileInputRef.current.value = ''; };
-  const handleDeleteMonth = (month) => { const upd = { ...monthlyData }; delete upd[month]; setMonthlyData(upd); saveMonthlyDataLocal(upd); saveMonthlyDataApi(upd); };
+  const handleDeleteMonth = (month) => { const upd = { ...monthlyData }; delete upd[month]; setMonthlyData(upd); saveMonthlyData(upd); };
   const handleOverwriteMonth = (month) => { setEditingMonth(month); const cats = monthlyData[month]?.categories || []; setNewMonthName(month); setNewMonthText(cats.map(c => `| ${managerFilter} | ${c.category} | ${c.order || ''} | ${c.dealFell || ''} | ${c.priceFail || ''} | ${c.slowCalc || ''} | ${c.clientSilent || ''} | ${c.formal || ''} | ${c.noFeedback || ''} | ${c.total} |`).join('\n')); setShowMonthPanel(true); };
   const handleExportBackup = () => { const blob = new Blob([JSON.stringify(monthlyData, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'kubarev_backup.json'; a.click(); };
-  const handleImportBackup = (e) => { const file = e.target.files?.[0]; if (!file) return; const r = new FileReader(); r.onload = (ev) => { try { const d = JSON.parse(ev.target.result); setMonthlyData(d); saveMonthlyDataLocal(d); saveMonthlyDataApi(d); alert('✅ Восстановлено.'); } catch { alert('❌ Неверный формат.'); } }; r.readAsText(file); e.target.value = ''; };
+  const handleImportBackup = (e) => { const file = e.target.files?.[0]; if (!file) return; const r = new FileReader(); r.onload = (ev) => { try { const d = JSON.parse(ev.target.result); setMonthlyData(d); saveMonthlyData(d); alert('✅ Восстановлено.'); } catch { alert('❌ Неверный формат.'); } }; r.readAsText(file); e.target.value = ''; };
   const addGoal = () => { if (!newGoal.trim()) return; const upd = [...goals, { text: newGoal.trim(), done: false, date: new Date().toLocaleString('ru-RU') }]; setGoals(upd); localStorage.setItem(GOALS_KEY, JSON.stringify(upd)); setNewGoal(''); };
   const toggleGoal = (i) => { const upd = [...goals]; upd[i].done = !upd[i].done; setGoals(upd); localStorage.setItem(GOALS_KEY, JSON.stringify(upd)); };
   const deleteGoal = (i) => { const upd = goals.filter((_, j) => j !== i); setGoals(upd); localStorage.setItem(GOALS_KEY, JSON.stringify(upd)); };
@@ -136,7 +131,7 @@ const Dashboard = () => {
   const allMonthKeys = useMemo(() => sortMonths([...new Set(allParsed.map(r => r.month))]), [allParsed]);
   const prevP = useMemo(() => { if (!allMonthKeys.length || allMonthKeys.length < 2) return null; return allParsed.filter(r => r.month !== allMonthKeys[allMonthKeys.length - 1]); }, [allParsed, allMonthKeys]);
 
-  const handleFileUpload = async (e) => { const file = e.target.files?.[0]; if (!file) return; setIsLoading(true); setExcelFileName(file.name); try { const md = await loadExcelAsMarkdown(file, { onlyKubarev: true }); setRawText(md); setDataSource('excel'); saveToHistory(file.name, md); const pr = parseMarkdownTable(md, managerFilter); const nd = {}; for (const r of pr) { if (!nd[r.month]) nd[r.month] = { manager: managerFilter, categories: [] }; nd[r.month].categories.push({ category: r.category, order: r.order, dealFell: r.dealFell, priceFail: r.priceFail, slowCalc: r.slowCalc, clientSilent: r.clientSilent, formal: r.formal, noFeedback: r.noFeedback, total: r.total }); } const merged = { ...monthlyData, ...nd }; setMonthlyData(merged); saveMonthlyDataLocal(merged); saveMonthlyDataApi(merged); } catch (err) { alert('❌ Не удалось прочитать Excel.'); } finally { setIsLoading(false); if (fileInputRef.current) fileInputRef.current.value = ''; } };
+  const handleFileUpload = async (e) => { const file = e.target.files?.[0]; if (!file) return; setIsLoading(true); setExcelFileName(file.name); try { const md = await loadExcelAsMarkdown(file, { onlyKubarev: true }); setRawText(md); setDataSource('excel'); saveToHistory(file.name, md); const pr = parseMarkdownTable(md, managerFilter); const nd = {}; for (const r of pr) { if (!nd[r.month]) nd[r.month] = { manager: managerFilter, categories: [] }; nd[r.month].categories.push({ category: r.category, order: r.order, dealFell: r.dealFell, priceFail: r.priceFail, slowCalc: r.slowCalc, clientSilent: r.clientSilent, formal: r.formal, noFeedback: r.noFeedback, total: r.total }); } const merged = { ...monthlyData, ...nd }; setMonthlyData(merged); saveMonthlyData(merged); } catch (err) { alert('❌ Не удалось прочитать Excel.'); } finally { setIsLoading(false); if (fileInputRef.current) fileInputRef.current.value = ''; } };
   const saveToHistory = useCallback((name, text) => { const c = parseMarkdownTable(text, managerFilter).reduce((s, r) => s + r.total, 0); setHistory(p => { const u = [{ name, date: new Date().toLocaleString('ru-RU'), count: c, text }, ...p.filter(h => h.text !== text)].slice(0, MAX_HISTORY); localStorage.setItem(HISTORY_KEY, JSON.stringify(u)); return u; }); }, []);
   const loadFromHistory = (e) => { setRawText(e.text); setDataSource('history'); };
   const handleDownloadMd = () => { const b = new Blob([rawText], { type: 'text/markdown;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'kubarev_data.md'; a.click(); };
