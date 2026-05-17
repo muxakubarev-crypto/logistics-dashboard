@@ -14,6 +14,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import DEFAULT_TEXT from './defaultData.js';
 import { parseMarkdownTable } from './markdownParser.js';
+// Vercel KV integration — data stored in cloud, shared across all users
 import { loadExcelAsMarkdown } from './excelLoader.js';
 
 const PIE_COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#64748b'];
