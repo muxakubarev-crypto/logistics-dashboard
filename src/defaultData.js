@@ -19,4 +19,5 @@ const DEFAULT_TEXT = (() => {
   return md;
 })();
 
+export { INITIAL_DATA };
 export default DEFAULT_TEXT;

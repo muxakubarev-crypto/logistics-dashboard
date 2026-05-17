@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "api/data.js": {
+      "runtime": "nodejs22.x",
+      "includeFiles": "!src/**,!plans/**,!scripts/**,!data/**,!AnalyticsMonthly/**"
+    }
+  },
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}
