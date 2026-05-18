@@ -13,7 +13,11 @@ async function kvGet(key) {
   });
   if (!r.ok) throw new Error(`KV GET failed: ${r.status}`);
   const d = await r.json();
-  return d.result;
+  const raw = d.result;
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw); } catch { return raw; }
+  }
+  return raw;
 }
 
 async function kvSet(key, value) {
@@ -44,6 +48,9 @@ function corsHeaders() {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, x-admin-token',
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
   };
 }
 
