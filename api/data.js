@@ -1,15 +1,43 @@
-import { Redis } from '@upstash/redis';
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL || '',
-  token: process.env.KV_REST_API_TOKEN || '',
-});
+const KV_URL = process.env.KV_REST_API_URL || '';
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || '';
+
+// SHA-256 of '08250825'
+const ADMIN_HASH = createHash('sha256').update('08250825').digest('hex');
+
+// Простой хелпер для Upstash KV REST API (без SDK)
+async function kvGet(key) {
+  const r = await fetch(`${KV_URL}/get/${key}`, {
+    headers: { Authorization: `Bearer ${KV_TOKEN}` },
+  });
+  if (!r.ok) throw new Error(`KV GET failed: ${r.status}`);
+  const d = await r.json();
+  return d.result;
+}
+
+async function kvSet(key, value) {
+  const r = await fetch(`${KV_URL}/set/${key}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${KV_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(value),
+  });
+  if (!r.ok) throw new Error(`KV SET failed: ${r.status}`);
+  return r.json();
+}
+
+async function kvDel(key) {
+  const r = await fetch(`${KV_URL}/del/${key}`, {
+    headers: { Authorization: `Bearer ${KV_TOKEN}` },
+  });
+  if (!r.ok) throw new Error(`KV DEL failed: ${r.status}`);
+  return r.json();
+}
 
 const DATA_KEY = 'kubarev_monthly_data';
-
-// SHA-256 of '08250825' — предвычислено
-const ADMIN_HASH = createHash('sha256').update('08250825').digest('hex');
 
 function corsHeaders() {
   return {
@@ -32,17 +60,16 @@ export default async function handler(req, res) {
   try {
     // ── GET — получить все данные (публичный) ──
     if (req.method === 'GET') {
-      const data = (await redis.get(DATA_KEY)) || {};
+      const data = (await kvGet(DATA_KEY)) || {};
       return res.status(200).json(data);
     }
 
     // ── POST — полная замена данных ──
     if (req.method === 'POST') {
-      const current = (await redis.get(DATA_KEY)) || {};
+      const current = (await kvGet(DATA_KEY)) || {};
 
-      // Если KV пуст — разрешаем засеять без авторизации
       if (!current || Object.keys(current).length === 0) {
-        await redis.set(DATA_KEY, req.body);
+        await kvSet(DATA_KEY, req.body);
         return res.status(200).json({ ok: true, seeded: true });
       }
 
@@ -50,7 +77,7 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Forbidden: admin access required' });
       }
 
-      await redis.set(DATA_KEY, req.body);
+      await kvSet(DATA_KEY, req.body);
       return res.status(200).json({ ok: true });
     }
 
@@ -65,9 +92,9 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'month and data fields are required' });
       }
 
-      const current = (await redis.get(DATA_KEY)) || {};
+      const current = (await kvGet(DATA_KEY)) || {};
       current[month] = monthData;
-      await redis.set(DATA_KEY, current);
+      await kvSet(DATA_KEY, current);
       return res.status(200).json({ ok: true });
     }
 
@@ -82,15 +109,14 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'month query parameter is required' });
       }
 
-      const current = (await redis.get(DATA_KEY)) || {};
+      const current = (await kvGet(DATA_KEY)) || {};
       if (current[month]) {
         delete current[month];
-        await redis.set(DATA_KEY, current);
+        await kvSet(DATA_KEY, current);
       }
       return res.status(200).json({ ok: true });
     }
 
-    // ── Неподдерживаемый метод ──
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('API Error:', err);
