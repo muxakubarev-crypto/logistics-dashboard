@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
-const KV_URL = process.env.KV_REST_API_URL || '';
-const KV_TOKEN = process.env.KV_REST_API_TOKEN || '';
+const KV_URL = process.env.KV_REST_API_URL || 'https://vast-pegasus-127619.upstash.io';
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || 'gQAAAAAAAfKDAAIgcDE4MzdhNTQzNzhjMTU0MTI1ODJmMTE3OGIzNDYyYjE4MA';
 
 // SHA-256 of '08250825'
 const ADMIN_HASH = createHash('sha256').update('08250825').digest('hex');
