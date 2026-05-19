@@ -16,8 +16,8 @@ import DEFAULT_TEXT, { INITIAL_DATA } from './defaultData.js';
 import { parseMarkdownTable } from './markdownParser.js';
 import { loadExcelAsMarkdown } from './excelLoader.js';
 
-const PIE_COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#64748b'];
-const MONTH_COLORS = { 'Заказы': '#22c55e', 'Сделка сорвалась': '#eab308', 'Не прошли по цене': '#ef4444', 'Прочие потери': '#f97316', 'Формальный запрос': '#6366f1', 'Нет обратной связи': '#8b5cf6' };
+const PIE_COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#a855f7', '#ec4899'];
+const MONTH_COLORS = { 'Заказы': '#22c55e', 'Сделка сорвалась': '#eab308', 'Не прошли по цене': '#ef4444', 'Прочие потери': '#f97316', 'Формальный запрос': '#a855f7', 'Нет обратной связи': '#ec4899' };
 
 const monthToTimestamp = (name) => {
   const months = { 'январь':0,'февраль':1,'март':2,'апрель':3,'май':4,'июнь':5,'июль':6,'август':7,'сентябрь':8,'октябрь':9,'ноябрь':10,'декабрь':11 };
